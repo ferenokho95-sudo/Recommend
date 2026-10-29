@@ -1,0 +1,5 @@
+var/
+bin/
+.env
+*.log
+coverage.out

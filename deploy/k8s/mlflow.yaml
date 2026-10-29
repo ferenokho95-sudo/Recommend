@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: mlflow-data, namespace: recogo}
+spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 2Gi}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: mlflow, namespace: recogo}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: mlflow}}
+  template:
+    metadata: {labels: {app: mlflow}}
+    spec:
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000}
+      containers:
+        - name: mlflow
+          image: ghcr.io/mlflow/mlflow:v2.20.2
+          command: [mlflow]
+          args: [server, --host, '0.0.0.0', --port, '5000', --backend-store-uri, 'sqlite:////mlflow/mlflow.db', --artifacts-destination, /mlflow/artifacts, --workers, '1']
+          ports: [{containerPort: 5000}]
+          volumeMounts: [{name: data, mountPath: /mlflow}]
+          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: '1', memory: 1Gi}}
+          readinessProbe: {httpGet: {path: /health, port: 5000}, initialDelaySeconds: 15, periodSeconds: 10}
+      volumes: [{name: data, persistentVolumeClaim: {claimName: mlflow-data}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mlflow, namespace: recogo}
+spec:
+  selector: {app: mlflow}
+  ports: [{port: 5000, targetPort: 5000}]

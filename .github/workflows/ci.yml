@@ -1,0 +1,24 @@
+name: recogo-checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.24.2'}
+      - run: go mod download
+      - run: go vet ./...
+      - run: go test -race -cover ./...
+      - run: go build -o bin/recogo ./cmd/recogo
+      - run: docker compose config --quiet
+      - run: docker compose up --build -d --wait api
+      - run: docker compose exec -T api /recogo seed --url http://127.0.0.1:8080
+      - run: docker compose exec -T api /recogo train --url http://127.0.0.1:8080
+      - run: curl --fail http://127.0.0.1:8080/readyz
+      - run: docker compose exec -T api /recogo train --url http://127.0.0.1:8080
+      - run: docker compose exec -T api /recogo rollback --url http://127.0.0.1:8080
+      - if: always()
+        run: docker compose logs --tail 60
+      - if: always()
+        run: docker compose down

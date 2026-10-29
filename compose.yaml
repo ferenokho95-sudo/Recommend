@@ -1,0 +1,85 @@
+name: recogo
+services:
+  data-init:
+    image: busybox:1.37.0
+    user: root
+    command: [sh, -c, 'chown 65532:65532 /data']
+    volumes: [recodata:/data]
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: '1'
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: '1'
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: '1'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: '0'
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes: [kafkadata:/var/lib/kafka/data]
+    healthcheck:
+      test: [CMD-SHELL, '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list']
+      interval: 10s
+      timeout: 10s
+      retries: 30
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on: {kafka: {condition: service_healthy}}
+    entrypoint: [/bin/bash, -ec]
+    command:
+      - /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic product-events --partitions 3 --replication-factor 1 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic product-events-dlq --partitions 3 --replication-factor 1
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.20.2
+    entrypoint: [mlflow]
+    command: [server, --host, '0.0.0.0', --port, '5000', --backend-store-uri, 'sqlite:////mlflow/mlflow.db', --artifacts-destination, /mlflow/artifacts, --workers, '1']
+    ports: ['127.0.0.1:5000:5000']
+    volumes: [mlflowdata:/mlflow]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  api:
+    build: .
+    image: recogo:local
+    environment:
+      HTTP_ADDR: 0.0.0.0:8080
+      DATA_DIR: /data
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-recogo-local}
+      TRAIN_INTERVAL: ${TRAIN_INTERVAL:-1h}
+      KAFKA_BROKERS: kafka:9092
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes: [recodata:/data]
+    ports: ['127.0.0.1:8080:8080']
+    restart: unless-stopped
+    depends_on:
+      kafka-init: {condition: service_completed_successfully}
+      data-init: {condition: service_completed_successfully}
+      mlflow: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, /recogo, health, --url, 'http://127.0.0.1:8080']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  airflow:
+    image: apache/airflow:2.10.5-python3.11
+    profiles: [airflow]
+    command: standalone
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      RECOGO_URL: http://api:8080
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-recogo-local}
+    ports: ['127.0.0.1:8081:8080']
+    volumes: ['./deploy/airflow:/opt/airflow/dags:ro', 'airflowdata:/opt/airflow']
+    depends_on: {api: {condition: service_healthy}}
+volumes:
+  recodata:
+  kafkadata:
+  mlflowdata:
+  airflowdata:

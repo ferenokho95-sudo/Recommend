@@ -1,0 +1,100 @@
+{
+  "0_seed": "Stored 290 events. Ready for recogo train.",
+  "1_train": "{\"version\":\"d6a798b24f40f28717665932e9a3b210\",\"events\":290,\"train_events\":232,\"candidate\":{\"users\":58,\"hit_rate_at_5\":1},\"baseline\":{\"users\":58,\"hit_rate_at_5\":0},\"accepted\":true,\"reason\":\"quality_gate_passed\",\"created_at\":\"2026-10-29T09:37:34.99485532Z\"}",
+  "2_train": "{\"version\":\"f86ad255e5ffc6da6f690739eb4b6a27\",\"events\":290,\"train_events\":232,\"candidate\":{\"users\":58,\"hit_rate_at_5\":1},\"baseline\":{\"users\":58,\"hit_rate_at_5\":0},\"accepted\":true,\"reason\":\"quality_gate_passed\",\"created_at\":\"2026-10-29T09:37:35.004706169Z\"}",
+  "3_rollback": "{\"algorithm\":\"item_cosine\",\"version\":\"d6a798b24f40f28717665932e9a3b210\"}",
+  "recommendations": {
+    "recommendations": [
+      {
+        "product_id": "SKU-004",
+        "score": 1.5620209835004255,
+        "reason": "similar_to_history"
+      },
+      {
+        "product_id": "SKU-006",
+        "score": 1.5620209835004255,
+        "reason": "similar_to_history"
+      },
+      {
+        "product_id": "SKU-013",
+        "score": 56,
+        "reason": "popular_fallback"
+      },
+      {
+        "product_id": "SKU-021",
+        "score": 56,
+        "reason": "popular_fallback"
+      },
+      {
+        "product_id": "SKU-029",
+        "score": 56,
+        "reason": "popular_fallback"
+      }
+    ],
+    "user_id": "user-001",
+    "version": "d6a798b24f40f28717665932e9a3b210"
+  },
+  "cold_start": {
+    "recommendations": [
+      {
+        "product_id": "SKU-005",
+        "score": 56,
+        "reason": "popular_fallback"
+      },
+      {
+        "product_id": "SKU-013",
+        "score": 56,
+        "reason": "popular_fallback"
+      },
+      {
+        "product_id": "SKU-021",
+        "score": 56,
+        "reason": "popular_fallback"
+      },
+      {
+        "product_id": "SKU-029",
+        "score": 56,
+        "reason": "popular_fallback"
+      },
+      {
+        "product_id": "SKU-037",
+        "score": 56,
+        "reason": "popular_fallback"
+      }
+    ],
+    "user_id": "new-user",
+    "version": "d6a798b24f40f28717665932e9a3b210"
+  },
+  "versions": [
+    {
+      "version": "f86ad255e5ffc6da6f690739eb4b6a27",
+      "created_at": "2026-10-29T09:37:35.004827583Z",
+      "algorithm": "item_cosine",
+      "active": false,
+      "valid": true
+    },
+    {
+      "version": "d6a798b24f40f28717665932e9a3b210",
+      "created_at": "2026-10-29T09:37:34.994857143Z",
+      "algorithm": "item_cosine",
+      "active": true,
+      "valid": true
+    }
+  ],
+  "report": {
+    "version": "f86ad255e5ffc6da6f690739eb4b6a27",
+    "events": 290,
+    "train_events": 232,
+    "candidate": {
+      "users": 58,
+      "hit_rate_at_5": 1
+    },
+    "baseline": {
+      "users": 58,
+      "hit_rate_at_5": 0
+    },
+    "accepted": true,
+    "reason": "quality_gate_passed",
+    "created_at": "2026-10-29T09:37:35.004706169Z"
+  }
+}

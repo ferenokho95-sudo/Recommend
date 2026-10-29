@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Namespace
+metadata: {name: recogo}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: recogo-secrets, namespace: recogo}
+type: Opaque
+stringData:
+  ADMIN_TOKEN: recogo-local
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: recogo-config, namespace: recogo}
+data:
+  HTTP_ADDR: 0.0.0.0:8080
+  DATA_DIR: /data
+  TRAIN_INTERVAL: 0s
+  KAFKA_BROKERS: kafka:9092
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: recogo-data, namespace: recogo}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 2Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: recogo, namespace: recogo}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: recogo}}
+  template:
+    metadata: {labels: {app: recogo}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532}
+      containers:
+        - name: recogo
+          image: recogo:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: {name: recogo-config}
+            - secretRef: {name: recogo-secrets}
+          ports: [{containerPort: 8080}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: '2', memory: 1Gi}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: data, mountPath: /data}]
+          startupProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 5, failureThreshold: 60}
+          livenessProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 15}
+          readinessProbe: {httpGet: {path: /healthz, port: 8080}, periodSeconds: 5}
+      volumes: [{name: data, persistentVolumeClaim: {claimName: recogo-data}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: recogo, namespace: recogo}
+spec:
+  selector: {app: recogo}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: recogo-retrain, namespace: recogo}
+spec:
+  schedule: '0 * * * *'
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 180
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532}
+          containers:
+            - name: train
+              image: recogo:local
+              imagePullPolicy: IfNotPresent
+              args: [train, --url, 'http://recogo:8080']
+              envFrom: [{secretRef: {name: recogo-secrets}}]
+              resources: {requests: {cpu: 50m, memory: 32Mi}, limits: {cpu: 500m, memory: 128Mi}}
